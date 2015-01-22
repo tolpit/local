@@ -22,7 +22,7 @@ Store.js
 
 Manipulate the stores : *save/update/remove*
 
-> **Usage : **
+> **Usage :**
 
 	var nameStore = Store.require('name');
 	
@@ -73,5 +73,7 @@ Simple interface to manipulate LocalStorage, and store Array or object inside.
 Then
 
 	Local.get('key');
+	
 To edit an array :
-		Local.push('key', 4);
+
+	Local.push('key', 4);
