@@ -1,2 +1,2 @@
 # local
-Put data offline
+Put data offline with IndexDB and LocalStorage
