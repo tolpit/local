@@ -13,7 +13,7 @@ Connect to the indexedDB and init the stores
 
 > **Usage :**
 
-> DB.connect('database-name', ['store-name'], callbackWhenLoaded);
+	DB.connect('database-name', ['store-name'], callbackWhenLoaded);
 
 ----------
 
