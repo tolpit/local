@@ -6,19 +6,20 @@ function Store(name) {
 	var self = this;
 
 	this.name = name;
-	this.middleware = {
-		populate: [],
+	this.actions = {
+		populate: null,
 		sort: null,
 		exec: null
 	};
 
-	this.sort = function(field) {
-		self.middleware.sort = field;
-	};
+	["sort", "populate", "exec"].forEach(function(action) {
+		self[action] = function(thing) {
+			self.actions[action] = thing;
+			return self;
+		}
+	});
 
-	this.exec = function(callback) {
-		self.middleware.exec = callback;
-	};
+	return this;
 }
 
 Store.require = function(name) {
@@ -42,9 +43,16 @@ Store.match = function(data, query) {
 		return true;
 	}
 
-	//When _id query : auto pass
-	if(query._id && keys.length == 1 && data._id == query._id) {
-		return true;
+	//When _id query
+	if(query._id && keys.length == 1) {
+        //If "$in"
+        if(query._id['$in']) {
+            if(~query._id['$in'].indexOf(data._id))
+                return true;
+        }
+        else if(data._id == query._id) {
+            return true;
+        }
 	}
 
 	//Boucle de vérification
@@ -121,12 +129,18 @@ Store.prototype.find = function(query, fields, callback) {
 };
 
 Store.prototype.findOne = function(query, callback) {
+    var self = this;
+
 	this.find(query, function(res) {
-		return callback(res[0]);
+        (callback || self.doExec.bind(self) || noop)(res[0]);
 	});
+
+    return this;
 };
 
 Store.prototype.findById = function(id, callback) {
+    var self = this;
+
 	var transaction = DB.db.transaction([this.name], "readonly");
 	var store = transaction.objectStore(this.name);
 
@@ -138,8 +152,10 @@ Store.prototype.findById = function(id, callback) {
 		console.error("Such error");
 	};
 	request.onsuccess = function(event) {
-		return (callback || noop)(request.result);
+		(callback || self.doExec.bind(self) || noop)(request.result);
 	};
+
+    return this;
 };
 
 
@@ -229,12 +245,50 @@ Store.prototype.count = function(query, callback) {
 	return this;
 };
 
+Store.prototype.doPopulate = function(storeData, callback) {
+	var self = this;
+
+    if(storeData === undefined)
+        return callback(null);
+
+    if(Array.isArray(storeData)) {
+        storeData.forEach(function(store, index) {
+            var field = self.actions.populate; console.log(field);
+            var secondStore = Store.require(field);
+
+            secondStore.findById(store[field], function(res) {
+                store[field] = res;
+
+                if(index == storeData.length - 1)
+                    callback(storeData);
+            });
+        });
+    }
+    else {
+        var field = self.actions.populate;
+        var secondStore = Store.require(field);
+
+        secondStore.find({ "_id" : { "$in" : storeData[field] } }, function(res) {
+            storeData[field] = res;
+
+            callback(storeData);
+        });
+
+
+    }
+
+
+
+};
+
 Store.prototype.doExec = function(data) {
-	if(!this.middleware.exec) return;
+    if(!this.actions.exec) return;
+
+	var self = this;
 
 	//If we need to sort the result before
-	if(this.middleware.sort) {
-		var key = this.middleware.sort;
+	if(this.actions.sort) {
+		var key = this.actions.sort;
 
 		data.sort(function(a, b) {
 			if (a[key] < b[key])
@@ -245,6 +299,14 @@ Store.prototype.doExec = function(data) {
 		});
 	}
 
-	this.middleware.exec(data);
-	this.middleware.exec = null;
+	if(this.actions.populate) {
+		this.doPopulate(data, function(res) {
+			self.actions.exec(res);
+			self.actions.exec = null;
+		});
+	}
+	else {
+		this.actions.exec(data);
+		this.actions.exec = null;
+	}
 };
