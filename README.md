@@ -1,7 +1,7 @@
 Local
 ===================
 
-Put data offline with IndexDB and LocalStorage
+Put data offline with IndexedDB and LocalStorage
 
 
 ----------
